@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Oscar's Cosmic Odyssey: Landscape Master</title>
+    <style>
+        /* 기본 배경 및 정렬 */
+        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; width: 100vw; font-family: 'Arial', sans-serif; touch-action: none; }
+        
+        /* [반응형 게임 컨테이너] */
+        #game-container { 
+            position: relative; 
+            width: 100vw; 
+            height: 56.25vw; /* 16:9 비율 유지 */
+            max-width: 177.78vh; /* 높이에 따른 최대 폭 제한 */
+            max-height: 100vh;
+            background: #000;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            overflow: hidden;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; background: #111; border: 2px solid #ffd700; box-sizing: border-box; }
+        
+        /* [반응형 조종 버튼 - 세이프 존 설정] */
+        #mobileControls { position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; z-index: 999999; display: block; }
+        
+        .touch-btn { 
+            position: absolute; pointer-events: auto; 
+            width: 12vh; height: 12vh; /* 화면 높이에 비례하여 크기 조절 */
+            min-width: 70px; min-height: 70px;
+            background: rgba(255, 215, 0, 0.45); border: 3px solid #ffd700; 
+            border-radius: 50%; color: #fff; display: flex; 
+            justify-content: center; align-items: center; font-size: 5vh; 
+            font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+        }
+
+        /* 버튼 위치: % 단위를 사용하여 잘림 방지 */
+        #btn-up { left: 5%; bottom: 42%; }
+        #btn-down { left: 5%; bottom: 8%; }
+        #btn-fire { 
+            right: 5%; bottom: 10%; 
+            width: 18vh; height: 18vh; 
+            min-width: 110px; min-height: 110px;
+            background: rgba(0, 242, 255, 0.45); border-color: #00f2ff; 
+            color: #fff; font-size: 3.5vh; 
+            box-shadow: 0 0 25px rgba(0, 242, 255, 0.7);
+        }
+        
+        .touch-btn:active { background: rgba(255, 255, 255, 0.8); transform: scale(0.9); }
+
+        /* [PC 화면에서는 버튼 숨기기] */
+        @media screen and (min-width: 1200px) { #mobileControls { display: none; } }
+
+        /* [UI 레이어 정규화] */
+        #startScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('bg.jpg') no-repeat center/cover; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 50000; }
+        #startScreen::before { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: -1; }
+        #scoreGuide { display: flex; gap: 2vw; background: rgba(255,255,255,0.1); padding: 1.5vh; border-radius: 15px; margin: 2vh 0; border: 1px solid #ffd700; }
+        .guide-item { text-align: center; color: white; font-size: 1.8vh; }
+        .guide-item span { display: block; font-weight: bold; color: #ffd700; font-size: 2.2vh; margin-bottom: 2px; }
+
+        #ui { position: absolute; top: 3%; color: white; text-align: center; pointer-events: none; width: 100%; text-shadow: 2px 2px 4px #000; z-index: 40000; display: none; }
+        .overlay-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; text-align: center; z-index: 800000; background: rgba(0,0,0,0.95); padding: 5vh; border-radius: 20px; border: 3px solid #ffd700; width: 70%; max-width: 500px; }
+        button#startBtn, button#nextBtn { padding: 2vh 6vh; font-size: 3vh; cursor: pointer; background: #ffd700; border: none; font-weight: bold; border-radius: 50px; color: #000; margin-top: 3vh; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="mobileControls">
+        <div id="btn-up" class="touch-btn">▲</div>
+        <div id="btn-down" class="touch-btn">▼</div>
+        <div id="btn-fire" class="touch-btn">FIRE</div>
+    </div>
+
+    <div id="startScreen">
+        <h1 style="color: #ffd700; font-size: 6vh; margin: 0;">The Odyssey of Mt. Sumeru</h1>
+        <p style="color: #fff; font-size: 2.2vh; margin-top: 1vh;">PC: Arrows & Space | Smartphone: Touch Buttons</p>
+        <div id="scoreGuide">
+            <div class="guide-item">📦 <span>10 pts</span> Box</div>
+            <div class="guide-item">🍜☕🍪 <span>100 pts</span> Bonus</div>
+            <div class="guide-item">🍖🍗🍺 <span>500 pts</span> Super</div>
+        </div>
+        <button id="startBtn">ENTER GAME</button>
+    </div>
+
+    <div id="ui">
+        <h2 id="stageTitle" style="margin: 0; color: #ffd700; font-size: 4vh;">Stage 1</h2>
+        <div style="font-size: 2.5vh;">Score: <span id="score">0</span> / <span id="target">1000</span> | Lives: <span id="lives">❤️❤️❤️</span></div>
+    </div>
+
+    <div id="successMsg" class="overlay-msg">
+        <h2 style="color: #ffd700; font-size: 4vh;">MISSION SUCCESS!</h2>
+        <button id="nextBtn" onclick="nextStage()">NEXT STAGE</button>
+    </div>
+
+    <div id="finalEnding" class="overlay-msg" style="border-color: #00f2ff;">
+        <h1 style="color: #00f2ff; font-size: 5vh;">CONGRATULATIONS!</h1>
+        <p style="color: #fff; font-size: 3vh;">You are the star of today.</p>
+        <button onclick="location.reload()" style="background: #00f2ff; border-radius:50px; font-weight:bold;">REPLAY</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 1066; canvas.height = 600; // 내부 해상도 유지
+
+// 에셋 연결
+const bgm = new Audio('bgm.mp3'); bgm.loop = true;
+const scoreSfx = new Audio('score.mp3');
+const oscarImg = new Image(); oscarImg.src = 'oscar.png';
+const bonusImg = new Image(); bonusImg.src = 'bonus.png'; 
+const starbucksImg = new Image(); starbucksImg.src = 'starbucks.png';
+const ramenImg = new Image(); ramenImg.src = 'ramen.png';
+const cookieImg = new Image(); cookieImg.src = 'cookie.png';
+const meatImg = new Image(); meatImg.src = 'meat.png';
+const chickenImg = new Image(); chickenImg.src = 'chicken.png';
+const beerImg = new Image(); beerImg.src = 'beer.png';
+const bgImg = new Image();
+
+let gameState = 'START', currentStage = 1, score = 0, targetScore = 0, lives = 3, invincibility = 0, bgGlowTick = 0;
+let bonusItems = [], bullets = [], keys = {};
+const oscar = { x: 100, y: 235, w: 130, h: 130, speed: 10, hitboxX: 30, hitboxY: 10, hitboxW: 70, hitboxH: 110 };
+const targets = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 0];
+
+const setupTouch = (id, keyName) => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', (e) => { 
+        e.preventDefault(); keys[keyName] = true; 
+        if(keyName === 'Space' && gameState === 'PLAYING') fireBeam(); 
+    }, {passive: false});
+    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; }, {passive: false});
+};
+setupTouch('btn-up', 'ArrowUp'); setupTouch('btn-down', 'ArrowDown'); setupTouch('btn-fire', 'Space');
+
+window.addEventListener('keydown', e => { if (e.code === 'Space' && gameState === 'PLAYING') fireBeam(); keys[e.code] = true; });
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+document.getElementById('startBtn').addEventListener('click', () => {
+    gameState = 'PLAYING';
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('ui').style.display = 'block';
+    bgm.play().catch(()=>{}); initStage(1);
+});
+
+function fireBeam() { if(gameState === 'PLAYING') bullets.push({ x: oscar.x + oscar.w - 30, y: oscar.y + 60, w: 50, h: 12, speed: 18 }); }
+
+function initStage(num) {
+    currentStage = num; score = 0; lives = 3; bonusItems = []; bullets = []; invincibility = 0;
+    document.querySelectorAll('.overlay-msg').forEach(m => m.style.display = 'none');
+    if (num === 10) { 
+        gameState = 'ENDING'; 
+        document.getElementById('ui').style.display = 'none';
+        document.getElementById('mobileControls').style.display = 'none';
+        document.getElementById('finalEnding').style.display = 'block'; return; 
+    }
+    gameState = 'PLAYING'; targetScore = targets[num-1];
+    document.getElementById('stageTitle').innerText = `Stage ${num}`; updateUI(); bgImg.src = `stage${num}_bg.jpg`;
+}
+
+function updateUI() { document.getElementById('score').innerText = score; document.getElementById('lives').innerText = "❤️".repeat(lives); document.getElementById('target').innerText = targetScore; }
+
+function update() {
+    if (gameState !== 'PLAYING') return;
+    if (invincibility > 0) invincibility--;
+    bgGlowTick++;
+    if (keys['ArrowUp']) oscar.y -= oscar.speed;
+    if (keys['ArrowDown']) oscar.y += oscar.speed;
+    oscar.y = Math.max(0, Math.min(canvas.height - oscar.h, oscar.y));
+    bullets.forEach((b, i) => { b.x += b.speed; if(b.x > canvas.width) bullets.splice(i, 1); });
+
+    if (Math.random() < 0.018) {
+        let rand = Math.random(), type = 'box';
+        if (rand < 0.05) type = ['meat', 'chicken', 'beer'][Math.floor(Math.random()*3)];
+        else if (rand < 0.30) type = ['starbucks', 'ramen', 'cookie'][Math.floor(Math.random()*3)];
+        bonusItems.push({ x: canvas.width, y: Math.random() * (canvas.height - 80), size: 90, type: type, speed: 1.5 + (currentStage * 0.1) });
+    }
+
+    for (let i = bonusItems.length - 1; i >= 0; i--) {
+        let b = bonusItems[i]; b.x -= b.speed;
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            let bull = bullets[j];
+            if (bull.x < b.x + b.size && bull.x + bull.w > b.x && bull.y < b.y + b.size && bull.y + bull.h > b.y) {
+                if (['meat', 'chicken', 'beer'].includes(b.type)) score += 500;
+                else if (['starbucks', 'ramen', 'cookie'].includes(b.type)) score += 100;
+                else score += 10;
+                scoreSfx.currentTime = 0; scoreSfx.play().catch(()=>{});
+                bonusItems.splice(i, 1); bullets.splice(j, 1); updateUI(); break;
+            }
+        }
+        if (bonusItems[i] && invincibility <= 0) {
+            let ox = oscar.x + oscar.hitboxX, oy = oscar.y + oscar.hitboxY;
+            if (ox < b.x + b.size - 25 && ox + oscar.hitboxW > b.x + 25 && oy < b.y + b.size - 25 && oy + oscar.hitboxH > b.y + 20) {
+                lives--; invincibility = 60; bonusItems.splice(i, 1); updateUI();
+                if (lives <= 0) { location.reload(); }
+            }
+        }
+        if (bonusItems[i] && b.x + b.size < 0) bonusItems.splice(i, 1);
+    }
+    if (score >= targetScore && currentStage < 10) { gameState = 'SUCCESS'; document.getElementById('successMsg').style.display = 'block'; }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const glow = (Math.sin(bgGlowTick * 0.02) + 1) / 2;
+    ctx.filter = `brightness(${1 + glow * 0.2}) saturate(${1 + glow * 0.3})`;
+    if (bgImg.complete && bgImg.width > 0) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+    else { ctx.fillStyle = "#111"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.filter = 'none';
+    bullets.forEach(b => { ctx.fillStyle = '#00f2ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#00f2ff'; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.shadowBlur = 0; });
+    if (oscarImg.complete && (invincibility % 10 < 5)) ctx.drawImage(oscarImg, oscar.x, oscar.y, oscar.w, oscar.h);
+    bonusItems.forEach(b => {
+        let img = bonusImg;
+        if(b.type === 'starbucks') img = starbucksImg; else if(b.type === 'ramen') img = ramenImg; else if(b.type === 'cookie') img = cookieImg;
+        else if(b.type === 'meat') img = meatImg; else if(b.type === 'chicken') img = chickenImg; else if(b.type === 'beer') img = beerImg;
+        if (img.complete && img.width > 0) ctx.drawImage(img, b.x, b.y, b.size, b.size);
+    });
+}
+function nextStage() { initStage(currentStage + 1); }
+function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+gameLoop();
+</script>
+</body>
+</html>
